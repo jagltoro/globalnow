@@ -1,0 +1,18 @@
+{
+  "name": "globalnow",
+  "version": "1.0.0",
+  "description": "Crawler Test",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "Crawler"
+  ],
+  "author": "Jesus Gonzalez",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^0.21.1",
+    "jsdom": "^16.5.3"
+  }
+}
