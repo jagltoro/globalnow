@@ -2,7 +2,7 @@ const axios = require('axios');
 const { JSDOM } = require('jsdom');
 
 const testURL = 'https://www.apple.com';
-const searchParam = 'menu';
+const searchParam = 'watch';
 const regexp = new RegExp(searchParam, "ig");
 
 let crawledCounter = 0;
@@ -16,7 +16,6 @@ function findText(element) {
 }
 
 async function fetchData(url){
-  console.log(`Getting data from the URL ${url}`);
   let response = await axios(url).catch((err) => console.log(err));
   if(response.status !== 200){
       console.err("Cannot get the data from the specified URL");
@@ -59,31 +58,54 @@ function printResults() {
   console.log(`Crawled ${crawledCounter} pages. Found ${crawledWithContent} pages with the term ‘${searchParam}’:`);
   console.log(totalFindings);
 }
-
-async function fetchNewURL(url,deep){
-  if(crawledPages.indexOf(url) === -1){
-    crawledPages.push(url);
-    crawledCounter++;
-    await fetchData(url).then((HTMLOutput) => {
-      if(HTMLOutput){
-        const parsedLists = parseData(HTMLOutput);
-        getAllMatchesFromList(parsedLists.textList, url);
-        getAllMatchesFromList(parsedLists.headingsList, url);
-        if(deep === 0){
-          parsedLists.anchorsList.forEach((element) => {
-            if(element.href.indexOf('/') === 0){
-              fetchNewURL(testURL+element.href, 1);
-            }
-          })
-        }
-      }
+ 
+const fetchChildUrl = (url) => new Promise ((resolve) => {
+    fetchData(url).then((HTMLOutput) => {
+      resolve({url, HTMLOutput: HTMLOutput ? HTMLOutput : '' })
     });
+ 
+});
+
+async function foo(element) {
+  const url = element.href;
+  const completeurl = testURL+element.href;
+  let HTMLOutput = '';
+  if(url.indexOf('/') === 0 && crawledPages.indexOf(completeurl) === -1){
+    crawledPages.push(completeurl);
+    crawledCounter++;
+    await fetchChildUrl(completeurl).then((result) => {
+      HTMLOutput = result
+    });
+    return {HTMLOutput, url: completeurl};
   }
 }
 
+async function fetchMainURL(url,deep){
+  await fetchData(url).then((HTMLOutput) => {
+    if(HTMLOutput){
+      const parsedLists = parseData(HTMLOutput);
+      getAllMatchesFromList(parsedLists.textList, url);
+      getAllMatchesFromList(parsedLists.headingsList, url);
+
+      if(deep === 0){
+        Promise.all(parsedLists.anchorsList.map(foo))
+        .then(output => {
+          output.forEach((data) => {
+            if(data){
+              const parsedLists = parseData(HTMLOutput);
+              getAllMatchesFromList(parsedLists.textList, data.url);
+              getAllMatchesFromList(parsedLists.headingsList, data.url);
+            }
+          })
+          printResults();
+        });
+      }
+    }
+  });
+}
+
 const main = (async () => {
-  await fetchNewURL(testURL, 0);
-  printResults();
+  await fetchMainURL(testURL, 0);
 })();
 
 
