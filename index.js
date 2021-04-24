@@ -1,8 +1,10 @@
 const axios = require('axios');
 const { JSDOM } = require('jsdom');
 
-const testURL = 'https://www.apple.com';
-const searchParam = 'watch';
+var args = process.argv.slice(2);
+
+const testURL = args[0] ?  args[0] : 'https://www.apple.com';
+const searchParam = args[1] ?  args[1] : 'watch';
 const regexp = new RegExp(searchParam, "ig");
 
 let crawledCounter = 0;
