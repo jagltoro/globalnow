@@ -3,8 +3,12 @@ const { JSDOM } = require('jsdom');
 
 const testURL = 'https://www.apple.com';
 const searchParam = 'menu';
-
 const regexp = new RegExp(searchParam, "ig");
+
+let crawledCounter = 0;
+let crawledWithContent = 0;
+let totalFindings = [];
+let crawledPages = [];
 
 function findText(element) {
   const str = element.textContent.replace(/ {2,}|[\t\n\r]/gm,'');
@@ -31,20 +35,55 @@ function parseData(data){
     ...dom.window.document.querySelectorAll('h4'), 
     ...dom.window.document.querySelectorAll('h5')
   ];
-  
-  anchorsList.forEach((element) => {
-    console.log(element.href);
-  })
-  //const findings = textList.filter(findText);
+  return {anchorsList, textList, headingsList};
 }
 
-
-function fetchNewURL(url){
-  fetchData(url).then((HTMLOutput) => {
-    if(HTMLOutput){
-      parseData(HTMLOutput);
+function getAllMatchesFromList(list, url){
+  const findings = list.filter(findText);
+  let texts = [];
+  if(findings.length > 0){
+    crawledWithContent++;
+    texts = findings.map((element) => {
+      const matches = [...element.textContent.matchAll(regexp)];
+      return matches[0].input.substr(matches[0].index - 5, matches[0].index + matches[0].length + 5);
+    });
+    if(totalFindings[url]){
+      totalFindings[url] = [...totalFindings[url], ...texts];
+    }else{
+      totalFindings[url] = [...texts];
     }
-  });
+  }
 }
 
-fetchNewURL(testURL);
+function printResults() {
+  console.log(`Crawled ${crawledCounter} pages. Found ${crawledWithContent} pages with the term ‘${searchParam}’:`);
+  console.log(totalFindings);
+}
+
+async function fetchNewURL(url,deep){
+  if(crawledPages.indexOf(url) === -1){
+    crawledPages.push(url);
+    crawledCounter++;
+    await fetchData(url).then((HTMLOutput) => {
+      if(HTMLOutput){
+        const parsedLists = parseData(HTMLOutput);
+        getAllMatchesFromList(parsedLists.textList, url);
+        getAllMatchesFromList(parsedLists.headingsList, url);
+        if(deep === 0){
+          parsedLists.anchorsList.forEach((element) => {
+            if(element.href.indexOf('/') === 0){
+              fetchNewURL(testURL+element.href, 1);
+            }
+          })
+        }
+      }
+    });
+  }
+}
+
+const main = (async () => {
+  await fetchNewURL(testURL, 0);
+  printResults();
+})();
+
+
